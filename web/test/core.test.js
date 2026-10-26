@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {connectProvider, canonical, transactionState, allowedSource, hashObject, verifyHistory} from '../core.js';
+import {connectProvider, canonical, transactionState, allowedSource, sha256, hashObject, verifyHistory} from '../core.js';
 test('wallet connection requests only public accounts', async () => {
  const requests=[]; const address='0x'+'1'.repeat(40);
  assert.equal(await connectProvider({request: async p => {requests.push(p); return [address];}}), address);
@@ -26,3 +26,9 @@ test('receipt chain detects mutation',async()=>{
  const candidate={commitment:entry.previous_hash,history:[{...entry,review_hash:await hashObject(entry)}]};
  assert.ok(await verifyHistory(candidate));candidate.history[0].result.verdict='FAILED';assert.ok(!await verifyHistory(candidate));
 });
+
+test('Studio receipt arrays distinguish finalized execution error',()=>assert.equal(transactionState({statusName:'FINALIZED',consensus_data:{leader_receipt:[{execution_result:'ERROR'}]}}).failed,true));
+
+test('SHA-256 works without secure-context Web Crypto',async()=>assert.equal(await sha256(new TextEncoder().encode('abc')),'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'));
+
+test('idle validator receipt does not turn successful leader execution into failure',()=>assert.equal(transactionState({statusName:'FINALIZED',consensus_data:{leader_receipt:[{mode:'leader',execution_result:'SUCCESS'},{mode:'validator',execution_result:'ERROR',result:{payload:'idle'}}]}}).failed,false));

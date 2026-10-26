@@ -1,1 +1,50 @@
-{"network":"studionet","chainId":61999,"contract":null,"deploymentTransaction":null,"sourceCommit":null,"pilots":[]}
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "contract": "0x50D68c089F7c55468d6DF00572F432ebF72749F2",
+  "deploymentTransaction": "0x86046bfb4238f219e8672c8e307db5933dc9e5854b240cb86b331d6ef9c779e1",
+  "sourceCommit": "cb72e31860e36f313bd161aff1d9decb773deca3",
+  "pilots": [
+    {
+      "label": "Deployment",
+      "transaction": "0x86046bfb4238f219e8672c8e307db5933dc9e5854b240cb86b331d6ef9c779e1"
+    },
+    {
+      "label": "Studio maintainer locks issue 1",
+      "transaction": "0xb0a25e09812150373f651da8322f7a4a78a9bd99ce44f08b106632622c1beb9c"
+    },
+    {
+      "label": "Frontend submits candidate 1",
+      "transaction": "0x883558badac1ec310b9a890c02f55e632d388956a8b29eece3120edda424a61d"
+    },
+    {
+      "label": "Candidate 1 review \u2014 FIXED",
+      "transaction": "0x3c3da12f39c4b770ec10cc4410423cc23b70e3f23acf7b5c6cf831b841f3a733"
+    },
+    {
+      "label": "Frontend submits candidate 2",
+      "transaction": "0x728d09c36d352fa5c9c484dab34c3023cacad8d4f5d7a5fc49a294d52c3231f5"
+    },
+    {
+      "label": "Candidate 2 review \u2014 FAILED",
+      "transaction": "0xa50db904d9805743113c07d785ade9acb20a7ddb89a8b9b4fcbf4a68701a2795"
+    },
+    {
+      "label": "Frontend submits candidate 3",
+      "transaction": "0x71c1d7c5dea3bcd2d6d48efb70143fe8cbfa4a13535d4137647d1f33f6f96742"
+    },
+    {
+      "label": "Frontend reviews candidate 3 \u2014 INCONCLUSIVE",
+      "transaction": "0x9cd99510d7c77f83f52f81b12626aad4880c737e7414dc3b1f5afe59914a864f"
+    },
+    {
+      "label": "Studio owner rechecks candidate 3",
+      "transaction": "0x844d9fcaa3374b49c6a329ae68ee23baeb3cb05cc548948a658e9d756b298dc3"
+    },
+    {
+      "label": "Frontend locks issue 2",
+      "transaction": "0xccb496770e009ad74a1f1ac4ba6b84d44bd968dd7efbb65ca26e5c72eda5bd35"
+    }
+  ],
+  "baselineCommit": "fdf153c9b89eff1d9573f1c73ba42fb6d133a204"
+}

@@ -9,6 +9,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "genlayer-js": "1.1.8",
     "vite": "7.3.1"
   }
