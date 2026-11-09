@@ -1,6 +1,7 @@
 import {createClient, createAccount, generatePrivateKey} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
 import {connectProvider, allowedSource, sha256, verifyHistory, transactionState} from './core.js';
+import {compareReviews} from './comparison.js';
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const client = createClient({chain:studionet});
@@ -52,9 +53,10 @@ async function showCandidate(id){
  selected=id;const c=candidates.find(c=>c.id===id), issue=issues.get(c.issue_id), latest=c.history.at(-1);
  for(const b of $('candidates').querySelectorAll('button'))b.classList.toggle('selected',b.dataset.candidate===id);
  const chainOK=await verifyHistory(c);
+ if (selected !== id || candidates.find(candidate => candidate.id === id) !== c) return;
  $('detail').innerHTML=`<div class="detail-head"><div><span class="label">LOCKED ISSUE / ${esc(issue.id)}</span><h3>${esc(issue.title)}</h3><p class="meta">${esc(issue.repository)}<br>Patch commit ${esc(c.commit)}</p></div><span class="badge ${esc(c.status)}">${esc(c.status)}</span></div><p>${esc(issue.problem)}</p><p class="meta">Baseline ${esc(issue.base_commit)}<br>Submit by ${new Date(issue.deadline*1000).toISOString()}<br>Commitment ${esc(c.commitment)}</p><h3>Criterion findings</h3>${issue.criteria.map((criterion,i)=>{
   const f=latest?.result.findings[i];return `<div class="criterion"><span class="label">${String(i+1).padStart(2,'0')} / ${esc(criterion.kind)}</span><p>${esc(criterion.text)}</p>${f?`<span class="badge ${esc(f.status)}">${esc(f.status)}</span><p><small>${esc(f.reason)}</small></p>${f.quote?`<blockquote>${esc(f.quote)}</blockquote><small>Source ${f.source+1} · ${esc(c.evidence[f.source]?.role)}</small>`:''}`:'<small>Awaiting a finalized review.</small>'}</div>`;
- }).join('')}<details open><summary>Committed evidence · ${c.evidence.length} files</summary>${c.evidence.map((e,i)=>`<div class="source"><button data-verify="${i}">Verify bytes</button><a href="${esc(e.url)}" target="_blank" rel="noreferrer">${esc(e.role)} / ${esc(e.url.split('/').at(-1))} ↗</a><code>${esc(e.sha256)}<br>${e.bytes} bytes · ${esc(latest?.result.sources[i].status||'NOT REVIEWED')}</code><span id="verify-${i}" class="meta"></span></div>`).join('')}</details><details><summary>Append-only verdict history · ${c.history.length} reviews</summary><p class="meta ${chainOK?'success':'error'}">${chainOK?'Review hash chain verified locally':'INVALID review hash chain'}</p>${c.history.map(h=>`<div class="history-entry"><span class="badge ${esc(h.result.verdict)}">${esc(h.result.verdict)}</span><p>Revision ${h.revision} · ${new Date(h.reviewed_at*1000).toISOString()}</p><p class="meta">Reviewer ${esc(h.reviewer)}<br>Review hash ${esc(h.review_hash)}<br>Previous ${esc(h.previous_hash)}</p></div>`).join('')}</details><details><summary>Locked issue and raw receipt</summary><pre>${esc(JSON.stringify({issue,candidate:c},null,2))}</pre><button id="export">Export receipt JSON</button></details>`;
+ }).join('')}<details open><summary>Committed evidence · ${c.evidence.length} files</summary>${c.evidence.map((e,i)=>`<div class="source"><button data-verify="${i}">Verify bytes</button><a href="${esc(e.url)}" target="_blank" rel="noreferrer">${esc(e.role)} / ${esc(e.url.split('/').at(-1))} ↗</a><code>${esc(e.sha256)}<br>${e.bytes} bytes · ${esc(latest?.result.sources[i].status||'NOT REVIEWED')}</code><span id="verify-${i}" class="meta"></span></div>`).join('')}</details><details><summary>Append-only verdict history · ${c.history.length} reviews</summary><p class="meta ${chainOK?'success':'error'}">${chainOK?'Review hash chain verified locally':'INVALID review hash chain'}</p>${c.history.map(h=>`<div class="history-entry"><span class="badge ${esc(h.result.verdict)}">${esc(h.result.verdict)}</span><p>Revision ${h.revision} · ${new Date(h.reviewed_at*1000).toISOString()}</p><p class="meta">Reviewer ${esc(h.reviewer)}<br>Review hash ${esc(h.review_hash)}<br>Previous ${esc(h.previous_hash)}</p></div>`).join('')}</details><details><summary>Compare finalized reviews</summary><div id="comparison"></div></details><details><summary>Locked issue and raw receipt</summary><pre>${esc(JSON.stringify({issue,candidate:c},null,2))}</pre><button id="export">Export receipt JSON</button></details>`;
  for(const b of $('detail').querySelectorAll('[data-verify]'))b.onclick=async()=>{
   const i=Number(b.dataset.verify),e=c.evidence[i];b.disabled=true;
   try{
@@ -65,7 +67,60 @@ async function showCandidate(id){
    $(`verify-${i}`).className=ok?'meta success':'meta error';
   }catch(err){$(`verify-${i}`).textContent=`Verification unavailable: ${err.message}`;}finally{b.disabled=false;}
  };
+ renderComparison(issue, c);
  $('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({network:'studionet',contract:deployment.contract,issue,candidate:c},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`patchscope-${c.id}-receipt.json`;a.click();URL.revokeObjectURL(url);};
+}
+function renderComparison(issue, current) {
+ const panel = $('comparison');
+ const options = candidates.filter(c => c.issue_id === issue.id).flatMap(candidate =>
+  candidate.history.map(review => ({candidate, revision: review.revision, verdict: review.result.verdict})));
+ if (options.length < 2) {
+  panel.innerHTML = '<p>Comparison needs two finalized reviews for this issue.</p>';
+  return;
+ }
+ const labels = options.map(({candidate, revision, verdict}, i) =>
+  `<option value="${i}">Patch ${esc(candidate.id)} · Review ${revision} · ${esc(verdict)}</option>`).join('');
+ panel.innerHTML = `<div class="form-grid">
+  <label>Before<select id="compare-before">${labels}</select></label>
+  <label>After<select id="compare-after">${labels}</select></label>
+ </div><p id="compare-status" role="status"></p><div id="compare-results"></div>`;
+ const before = panel.querySelector('#compare-before');
+ const after = panel.querySelector('#compare-after');
+ const status = panel.querySelector('#compare-status');
+ const results = panel.querySelector('#compare-results');
+ const currentIndex = options.findLastIndex(option => option.candidate === current);
+ after.value = String(currentIndex < 0 ? 0 : currentIndex);
+ const priorIndex = options.findLastIndex((option, i) => i < currentIndex && option.candidate === current);
+ before.value = String(priorIndex >= 0 ? priorIndex : (after.value === '0' ? 1 : 0));
+ let request = 0;
+ const findingCell = finding => finding ? `<span class="badge ${esc(finding.status)}">${esc(finding.status)}</span>
+  <p>${esc(finding.reason)}</p>${finding.quote ? `<blockquote>${esc(finding.quote)}</blockquote>` : ''}
+  ${finding.source ? `<p class="meta">${esc(finding.source.role)} · ${esc(finding.source.reviewStatus)}<br>
+   ${esc(finding.source.url)}<br>SHA-256 ${esc(finding.source.sha256)}</p>` : ''}` : '<p>No finding recorded.</p>';
+ async function update() {
+  const version = ++request;
+  const sides = [options[Number(before.value)], options[Number(after.value)]];
+  results.replaceChildren();
+  status.textContent = 'Verifying review history…';
+  try {
+   const {reviews, rows} = await compareReviews(issue, ...sides);
+   if (version !== request) return;
+   const changed = rows.filter(row => row.changed).length;
+   status.textContent = `Review hash chains verified locally. ${changed} of ${rows.length} criterion findings changed.`;
+   results.innerHTML = `<div class="comparison-grid">${reviews.map((review, i) => `<div class="criterion">
+    <b>${i === 0 ? 'Before' : 'After'} · ${esc(review.result.verdict)}</b>
+    <p class="meta">Commit ${esc(sides[i].candidate.commit)}<br>Review hash ${esc(review.review_hash)}</p>
+   </div>`).join('')}</div>${rows.map(({criterion, before, after, changed}) => `<div class="criterion">
+    <span class="label">${esc(criterion.kind)} · ${changed ? 'Changed' : 'Unchanged'}</span>
+    <p>${esc(criterion.text)}</p><div class="comparison-grid">
+     <div><b>Before</b>${findingCell(before)}</div><div><b>After</b>${findingCell(after)}</div>
+    </div></div>`).join('')}`;
+  } catch (error) {
+   if (version === request) status.textContent = error.message;
+  }
+ }
+ before.onchange = after.onchange = update;
+ void update();
 }
 $('refresh').onclick=refresh;
 function renderForm(){
